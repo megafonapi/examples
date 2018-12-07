@@ -20,9 +20,9 @@
 В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом:
 
 ```
-$ curl -X GET --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
-$ curl -X PUT -T welcome.alaw --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
-$ curl -X DELETE --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
+$ curl -X GET --user <login>:<password> http://megafon.api/media/prompts/welcome.alaw
+$ curl -X PUT -T welcome.alaw --user <login>:<password> http://megafon.api/media/prompts/welcome.alaw
+$ curl -X DELETE --user <login>:<password> http://megafon.api/media/prompts/welcome.alaw
 ```
 
 Платформа проигрывает аудиофайлы из каталога prompts и записывает аудофайлы в каталог records. Формат файлов - одноканальный A-law с битрейтом 8KHz без заголовка (и поэтому файлы не будут проигрываться большинством аудиоплееров). Для конвертации файлов из любого формата и наоборот можно использовать sox (первым указывается существующий файл, вторым - сконвертированный файл):

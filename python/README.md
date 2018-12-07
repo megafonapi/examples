@@ -16,4 +16,4 @@ $ ./incoming.py <token> [ ... additional arguments ... ]
 
 * **conference.py** - принимает дополнительными аргументами два номера телефонов, звонит на них и объединяет их в конференцию
 
-Во всех примерах используется современная асинхронная реализация [JSON-RPC/WebSocket](https://github.com/armills/jsonrpc-websocket).
+Во всех примерах используется современная асинхронная реализация JSON-RPC/WebSocket - [jsonrpc-websocket](https://github.com/armills/jsonrpc-websocket).

@@ -27,7 +27,7 @@ async def play_and_terminate(call_session):
 
 async def main(login=None, password=None, token=None):
     global api
-    url = 'ws://127.0.0.127/v0/api'
+    url = 'ws://megafon.api/v0/api'
     if (token):
         api = Server(url, headers={'Authorization':'JWT '+token})
     elif (login and password):

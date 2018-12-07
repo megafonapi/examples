@@ -6,7 +6,7 @@ import aiohttp
 from jsonrpc_websocket import Server
 
 async def main(login=None, password=None, token=None, one=None, two=None):
-    url = 'ws://127.0.0.127/v0/api'
+    url = 'ws://megafon.api/v0/api'
     api = None
     if (token):
         api = Server(url, headers={'Authorization':'JWT '+token})

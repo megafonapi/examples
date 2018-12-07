@@ -9,7 +9,7 @@ my ($login, $password, $destination) = @ARGV;
 
 my $ua = Mojo::UserAgent->new;
 
-$ua->websocket("ws://$login:$password\@127.0.0.127/v0/api" => sub {
+$ua->websocket("ws://$login:$password\@megafon.api/v0/api" => sub {
 	my ($ua, $tx) = @_;
 	say 'WebSocket handshake failed!' and return unless $tx->is_websocket;
 	my $request = sub {
