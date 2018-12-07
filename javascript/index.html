@@ -1,0 +1,67 @@
+<html>
+<head>
+<title>Megafon.API Example</title>
+</head>
+<body>
+	<script type="text/javascript" src='jsonrpcws.js'></script>
+	<script type="text/javascript">
+	if (window.WebSocket && window.Promise) {
+		window.onload = () => {
+			connection.onclick = async () => {
+				if (connection.innerText == 'Connect') {
+					client = new JsonRpcWs(`ws://${login.value}:${password.value}@${location.host}/v0/api`);
+					client.handle('OnOpen', async () => {
+						connection.innerText = 'Disconnect';
+						actions.style.display = 'block';
+					})
+					client.handle('OnIncomingCall', async (params) => {
+						if (params.call_session) {
+							await client.request('AnswerCall', { call_session: params.call_session });
+							await playAndHangup(params.call_session);
+						}
+					});
+					client.handle('OnTerminateCall', async (params) => {
+						console.log('call terminated');
+					});
+					client.handle('OnClose', async () => {
+						connection.innerText = 'Connect';
+						actions.style.display = 'none';
+					})
+					await client.open();
+				} else {
+					await client.close();
+				}
+			}
+			call.onclick = async () => {
+				const response = await client.request('MakeCall', { bnum: destination.value });
+				if (response && response.data && response.data.call_session)
+					await playAndHangup(response.data.call_session);
+			}
+			conference.onclick = async () => {
+				if (typeof cf == 'undefined')
+					cf = await client.request('CreateConf', { max_participants : 10 });
+				if (cf && cf.data && cf.data.conf_session) {
+					const participant = await client.request('MakeCall', { anum: login.value, bnum: destination.value });
+					await client.request('AddToConf', { conf_session: cf.data.conf_session, call_session: participant.data.call_session });
+				}
+			}
+			playAndHangup = async (session) => {
+				await client.request('PlayAnouncement', { call_session: session, filename: 'welcome.pcm' });
+				await client.request('TerminateCall', { call_session: session });
+			}
+		}
+	} else {
+		console.log('Your browser does not support websockets and promises');
+	}
+	</script>
+	<input id='login' placeholder='Login'>
+	<input id='password' placeholder='Password'>
+	<button id='connection'>Connect</button>
+	<br><br>
+	<div id='actions' style='display:none'>
+	<input id='destination' placeholder='Destination'>
+	<button id='call'>Call</button>
+	<button id='conference'>Conference</button>
+	</div>
+</body>
+</html>
