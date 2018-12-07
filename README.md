@@ -13,9 +13,9 @@
 
 Для разработки приложений можно использовать примеры:
 
-* на [Python](/python) с использованием существующей реализации [JSON-RPC/WebSocket](https://github.com/armills/jsonrpc-websocket)
-* на [JavaScript](/javascript) с использованием собственной реализации [JSON-RPC/WebSocket](/javascript/jsonrpcws.js) в виде класса в отдельном файле
-* на [Perl](/perl) с использованием только [WebSocket](https://mojolicious.org/perldoc/Mojo/UserAgent#websocket) и JSON-RPC вручную
+* на [Python](/python) с использованием библиотечной реализации JSON-RPC/WebSocket из pip
+* на [JavaScript](/javascript) с использованием собственной реализации JSON-RPC/WebSocket для современных браузеров в виде класса в отдельном файле
+* на [Perl](/perl) с использованием библиотечной реализации WebSocket и обработкой запросов/ответов JSON-RPC вручную
 
 В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом:
 
