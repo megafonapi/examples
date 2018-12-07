@@ -5,17 +5,29 @@
 
 * принимать входящие вызовова
 * инициировать исходящие вызовов
-* проигрывать аудиофайлы
+* проигрывать и записывать аудиофайлы
 * получать информацию о нажатых клавишах
 * объединять несколько вызовов в конференцию
 
 Каждое приложение фактически является специальным абонентским терминалом (телефоном) и имеет собственный номер (MSISDN). Взаимодействие с платформой происходит по протоколу JSON-RPC поверх WebSocket c использованием базовой HTTP-аутентификации (при этом MSISDN является логином) или JWT-токена.
 
-Для разработки приложений можно использовать [документацию](http://megafonapi.github.io/), а также примеры на [Python](/python) и [JavaScript](/javascript). В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом:
+Для разработки приложений можно использовать примеры:
+
+* на [Python](/python) с использованием существующей реализации [JSON-RPC/WebSocket](https://github.com/armills/jsonrpc-websocket)
+* на [JavaScript](/javascript) с использованием собственной реализации [JSON-RPC/WebSocket](/javascript/jsonrpcws.js) в виде класса в отдельном файле
+* на [Perl](/perl) с использованием только [WebSocket](https://mojolicious.org/perldoc/Mojo/UserAgent#websocket) и JSON-RPC вручную
+
+В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом:
 
 ```
-$ curl -X GET --user <login>:<password> http://127.0.0.127/media/welcome.alaw
-$ curl -X PUT -T welcome.alaw --user <login>:<password> http://127.0.0.127/media/welcome.alaw
-$ curl -X DELETE --user <login>:<password> http://127.0.0.127/media/welcome.alaw
+$ curl -X GET --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
+$ curl -X PUT -T welcome.alaw --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
+$ curl -X DELETE --user <login>:<password> http://127.0.0.127/media/prompts/welcome.alaw
 ```
 
+Платформа проигрывает аудиофайлы из каталога prompts и записывает аудофайлы в каталог records. Формат файлов - одноканальный A-law с битрейтом 8KHz без заголовка (и поэтому файлы не будут проигрываться большинством аудиоплееров). Для конвертации файлов из любого формата и наоборот можно использовать sox (первым аргументом указывается существующий файл, вторым - сконвертированный файл):
+
+```
+sox -V -r 8000 -c 1 -t al hello.mp3 hello.pcm
+sox -V -r 8000 -c 1 -t al hello.pcm hello.wav
+```
