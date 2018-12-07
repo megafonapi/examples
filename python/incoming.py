@@ -22,7 +22,7 @@ def incoming(call_session, anum, bnum):
     
 async def play_and_terminate(call_session):
     await api.AnswerCall(call_session=call_session)
-    await api.PlayAnouncement(call_session=call_session,filename='welcome.pcm')
+    await api.PlayAnouncement(call_session=call_session,filename='hello.pcm')
     await api.TerminateCall(call_session=call_session)
 
 async def main(login=None, password=None, token=None):

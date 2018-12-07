@@ -25,7 +25,7 @@ $ua->websocket("ws://$login:$password\@127.0.0.127/v0/api" => sub {
 		} elsif ($json->{result} and $json->{result}{data}) {
 			if ($json->{id} == 1) {
 				$request->({ id => 2, jsonrpc => '2.0', method => 'PlayAnouncement', 
-					params => { call_session => $json->{result}{data}{call_session}, filename => 'welcome.pcm' }});
+					params => { call_session => $json->{result}{data}{call_session}, filename => 'hello.pcm' }});
 			} elsif ($json->{id} == 2) {
 				$request->({ id => 3, jsonrpc => '2.0', method => 'TerminateCall', 
 					params => { call_session => $json->{result}{data}{call_session} }});
