@@ -19,6 +19,7 @@ async def main(login=None, password=None, token=None, one=None, two=None):
         two_session = await api.MakeCall(bnum=two)
         await api.AddToConf(conf_session=cnf_session['data']['conf_session'], call_session=one_session['data']['call_session'])
         await api.AddToConf(conf_session=cnf_session['data']['conf_session'], call_session=two_session['data']['call_session'])
+        await api.RecordConf(conf_session=cnf_session['data']['conf_session'])
     except:
         print(sys.exc_info())
     finally:
