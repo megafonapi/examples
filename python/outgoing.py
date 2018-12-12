@@ -20,12 +20,12 @@ async def main(login=None, password=None, token=None, destination=None):
             pin = response['data']['dtmf'].replace('#','')
             print("PIN : {0}".format(pin))
             if (pin.isnumeric()):
-                print("PIN is number, so recoding for {0} seconds".format(pin))
+                print("PIN is a number, recoding for {0} seconds".format(pin))
                 record = await api.RecordCall(call_session=response['data']['call_session'], mode='nowait')
                 print("RECORD : {0}".format(record))
                 await asyncio.sleep(int(pin))
             else:
-                print("PIN is not number")
+                print("PIN is not a number")
             await api.TerminateCall(call_session=response['data']['call_session'])
     except:
         print(sys.exc_info())
