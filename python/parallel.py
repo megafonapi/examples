@@ -5,13 +5,13 @@ import asyncio
 import aiohttp
 from jsonrpc_websocket import Server
 
-async def call(login=None, password=None, token=None, destination=None):
+async def call(login=None, password=None, token=None, session=None, destination=None):
     url = 'ws://megafon.api/v0/api'
     api = None
     if (token):
-        api = Server(url, headers={'Authorization':'JWT '+token})
+        api = Server(url, headers={'Authorization':'JWT '+token}, session=session)
     elif (login and password):
-        api = Server(url, auth=aiohttp.BasicAuth(login,password))
+        api = Server(url, auth=aiohttp.BasicAuth(login,password), session=session)
     try:
         await api.ws_connect()
         response = await api.MakeCall(bnum=destination)
@@ -26,9 +26,10 @@ async def call(login=None, password=None, token=None, destination=None):
 
 async def main(login=None, password=None, token=None, destinations=None):
     tasks = []
-    for destination in destinations:
-        tasks.append(call(login, password, token, destination))
-    await asyncio.gather(*tasks)
+    async with aiohttp.ClientSession() as session:
+        for destination in destinations:
+            tasks.append(call(login, password, token, session, destination))
+        await asyncio.gather(*tasks)
 
 if len(sys.argv) == 5:
     asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destinations=[sys.argv[3],sys.argv[4]]))
