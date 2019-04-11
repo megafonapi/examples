@@ -7,6 +7,7 @@
 	<script type="text/javascript">
 	if (window.WebSocket && window.Promise) {
 		window.onload = () => {
+			let cf = null
 			connection.onclick = async () => {
 				if (connection.innerText == 'Connect') {
 					client = new JsonRpcWs(`ws://${login.value}:${password.value}@${location.host}/v0/api`);
@@ -14,10 +15,21 @@
 						connection.innerText = 'Disconnect';
 						actions.style.display = 'block';
 					})
+					client.handle('OnAnswerCall', async (params) => {
+						if (params.call_session) {
+							await client.request('PlayAnnouncement', { call_session: params.call_session, filename: 'prompts/welcome.pcm' });
+						}
+					});
+					client.handle('OnPlayAnnouncement', async (params) => {
+						if (cf && cf.data && cf.data.conf_session) {
+							await client.request('AddToConf', { conf_session: cf.data.conf_session, call_session: params.call_session });
+						} else {
+							await client.request('TerminateCall', { call_session: params.call_session });
+						}
+					});
 					client.handle('OnIncomingCall', async (params) => {
 						if (params.call_session) {
 							await client.request('AnswerCall', { call_session: params.call_session });
-							await playAndHangup(params.call_session);
 						}
 					});
 					client.handle('OnTerminateCall', async (params) => {
@@ -34,20 +46,13 @@
 			}
 			call.onclick = async () => {
 				const response = await client.request('MakeCall', { bnum: destination.value });
-				if (response && response.data && response.data.call_session)
-					await playAndHangup(response.data.call_session);
 			}
 			conference.onclick = async () => {
-				if (typeof cf == 'undefined')
-					cf = await client.request('CreateConf', { max_participants : 10 });
+				if (cf == null)
+					cf = await client.request('CreateConf');
 				if (cf && cf.data && cf.data.conf_session) {
-					const participant = await client.request('MakeCall', { anum: login.value, bnum: destination.value });
-					await client.request('AddToConf', { conf_session: cf.data.conf_session, call_session: participant.data.call_session });
+					await client.request('MakeCall', { bnum: destination.value });
 				}
-			}
-			playAndHangup = async (session) => {
-				await client.request('PlayAnouncement', { call_session: session, filename: 'welcome.pcm' });
-				await client.request('TerminateCall', { call_session: session });
 			}
 		}
 	} else {
