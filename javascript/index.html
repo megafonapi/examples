@@ -10,7 +10,7 @@
 			let cf = null
 			connection.onclick = async () => {
 				if (connection.innerText == 'Connect') {
-					client = new JsonRpcWs(`ws://${login.value}:${password.value}@${location.host}/v0/api`);
+					client = new JsonRpcWs(`ws://${login.value}:${password.value}@${location.host}/v1/api`);
 					client.handle('OnOpen', async () => {
 						connection.innerText = 'Disconnect';
 						actions.style.display = 'block';
