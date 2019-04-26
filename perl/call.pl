@@ -9,7 +9,9 @@ my ($login, $password, $destination) = @ARGV;
 
 my $ua = Mojo::UserAgent->new;
 
-$ua->websocket("ws://$login:$password\@megafon.api/v0/api" => sub {
+my $id = 0;
+
+$ua->websocket("ws://$login:$password\@megafon.api/v1/api" => sub {
 	my ($ua, $tx) = @_;
 	say 'WebSocket handshake failed!' and return unless $tx->is_websocket;
 	my $request = sub {
@@ -20,19 +22,17 @@ $ua->websocket("ws://$login:$password\@megafon.api/v0/api" => sub {
 	$tx->on(json => sub {
 		my ($tx, $json) = @_;
 		say 'Response : '.(encode_json $json);
-		if ($json->{method} and $json->{method} eq 'OnTerminateCall') {
+		if ($json->{method} and $json->{method} eq 'OnAnswerCall') {
+			$request->({ id => $id++, jsonrpc => '2.0', method => 'PlayAnnouncement', 
+				params => { call_session => $json->{params}{call_session}, filename => 'prompts/welcome.pcm' }});
+		} elsif ($json->{method} and $json->{method} eq 'OnPlayAnnouncement') {
+			$request->({ id => $id++, jsonrpc => '2.0', method => 'TerminateCall', 
+				params => { call_session => $json->{params}{call_session} }});
+		} elsif ($json->{method} and $json->{method} eq 'OnTerminateCall') {
 			$tx->finish;
-		} elsif ($json->{result} and $json->{result}{data}) {
-			if ($json->{id} == 1) {
-				$request->({ id => 2, jsonrpc => '2.0', method => 'PlayAnouncement', 
-					params => { call_session => $json->{result}{data}{call_session}, filename => 'hello.pcm' }});
-			} elsif ($json->{id} == 2) {
-				$request->({ id => 3, jsonrpc => '2.0', method => 'TerminateCall', 
-					params => { call_session => $json->{result}{data}{call_session} }});
-			}
 		}
 	});
-	$request->({ id => 1, jsonrpc => '2.0', method => 'MakeCall', params => { bnum => $destination }});
+	$request->({ id => $id++, jsonrpc => '2.0', method => 'MakeCall', params => { bnum => $destination }});
 });
 
 Mojo::IOLoop->start unless Mojo::IOLoop->is_running;
