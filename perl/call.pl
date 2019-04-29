@@ -24,7 +24,7 @@ $ua->websocket("ws://$login:$password\@megafon.api/v1/api" => sub {
 		say 'Response : '.(encode_json $json);
 		if ($json->{method} and $json->{method} eq 'OnAnswerCall') {
 			$request->({ id => $id++, jsonrpc => '2.0', method => 'PlayAnnouncement', 
-				params => { call_session => $json->{params}{call_session}, filename => 'prompts/welcome.pcm' }});
+				params => { call_session => $json->{params}{call_session}, filename => 'welcome.pcm' }});
 		} elsif ($json->{method} and $json->{method} eq 'OnPlayAnnouncement') {
 			$request->({ id => $id++, jsonrpc => '2.0', method => 'TerminateCall', 
 				params => { call_session => $json->{params}{call_session} }});
