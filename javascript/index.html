@@ -46,6 +46,7 @@
 			}
 			call.onclick = async () => {
 				const response = await client.request('MakeCall', { bnum: destination.value });
+				console.log({ 'MakeCall response': response });
 			}
 			conference.onclick = async () => {
 				if (cf == null)
