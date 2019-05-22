@@ -10,7 +10,8 @@
 			let cf = null
 			connection.onclick = async () => {
 				if (connection.innerText == 'Connect') {
-					client = new JsonRpcWs(`ws://${login.value}:${password.value}@${location.host}/v1/api`);
+					const protocol = location.protocol.replace('http', 'ws')
+					client = new JsonRpcWs(`${protocol}//${login.value}:${password.value}@${location.host}/v1/api`);
 					client.handle('OnOpen', async () => {
 						connection.innerText = 'Disconnect';
 						actions.style.display = 'block';
@@ -46,6 +47,7 @@
 			}
 			call.onclick = async () => {
 				const response = await client.request('MakeCall', { bnum: destination.value });
+				console.log({ 'MakeCall response': response });
 			}
 			conference.onclick = async () => {
 				if (cf == null)

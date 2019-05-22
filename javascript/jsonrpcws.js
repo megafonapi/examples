@@ -26,6 +26,10 @@ class JsonRpcWs {
 					console.log({ response : data });
 					if (data.id && this.responseHandlers[data.id])
 						this.responseHandlers[data.id](data.result);
+				} else if (data.error) {
+					console.log({ error : data });
+					if (data.id && this.responseHandlers[data.id])
+						this.responseHandlers[data.id](data.error);
 				} else if (data.method) {
 					console.log({ event : data });
 					if (this.requestHandlers[data.method])
