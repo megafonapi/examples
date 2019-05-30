@@ -5,55 +5,54 @@
 <body>
 	<script type="text/javascript" src='jsonrpcws.js'></script>
 	<script type="text/javascript">
-	if (window.WebSocket && window.Promise) {
+	if (window.WebSocket) {
 		window.onload = () => {
-			let cf = null
-			connection.onclick = async () => {
+			let cf = null;
+			connection.onclick = () => {
 				if (connection.innerText == 'Connect') {
-					const protocol = location.protocol.replace('http', 'ws')
+					const protocol = location.protocol.replace('http', 'ws');
 					client = new JsonRpcWs(`${protocol}//${login.value}:${password.value}@${location.host}/v1/api`);
-					client.handle('OnOpen', async () => {
+					client.handle('OnOpen', () => {
 						connection.innerText = 'Disconnect';
 						actions.style.display = 'block';
-					})
-					client.handle('OnAnswerCall', async (params) => {
+					});
+					client.handle('OnAnswerCall', (params) => {
 						if (params.call_session) {
-							await client.request('PlayAnnouncement', { call_session: params.call_session, filename: 'welcome.pcm' });
+							client.request('PlayAnnouncement', { call_session: params.call_session, filename: 'welcome.pcm' });
 						}
 					});
-					client.handle('OnPlayAnnouncement', async (params) => {
+					client.handle('OnPlayAnnouncement', (params) => {
 						if (cf && cf.data && cf.data.conf_session) {
-							await client.request('AddToConf', { conf_session: cf.data.conf_session, call_session: params.call_session });
+							client.request('AddToConf', { conf_session: cf.data.conf_session, call_session: params.call_session });
 						} else {
-							await client.request('TerminateCall', { call_session: params.call_session });
+							client.request('TerminateCall', { call_session: params.call_session });
 						}
 					});
-					client.handle('OnIncomingCall', async (params) => {
+					client.handle('OnIncomingCall', (params) => {
 						if (params.call_session) {
-							await client.request('AnswerCall', { call_session: params.call_session });
+							client.request('AnswerCall', { call_session: params.call_session });
 						}
 					});
-					client.handle('OnTerminateCall', async (params) => {
+					client.handle('OnTerminateCall', () => {
 						console.log('call terminated');
 					});
-					client.handle('OnClose', async () => {
+					client.handle('OnClose', () => {
 						connection.innerText = 'Connect';
 						actions.style.display = 'none';
-					})
-					await client.open();
+					});
+					client.open();
 				} else {
-					await client.close();
+					client.close();
 				}
 			}
-			call.onclick = async () => {
-				const response = await client.request('MakeCall', { bnum: destination.value });
-				console.log({ 'MakeCall response': response });
+			call.onclick = () => {
+				client.request('MakeCall', { bnum: destination.value });
 			}
-			conference.onclick = async () => {
+			conference.onclick = () => {
 				if (cf == null)
-					cf = await client.request('CreateConf');
+					cf = client.request('CreateConf');
 				if (cf && cf.data && cf.data.conf_session) {
-					await client.request('MakeCall', { bnum: destination.value });
+					client.request('MakeCall', { bnum: destination.value });
 				}
 			}
 		}
