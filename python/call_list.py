@@ -68,10 +68,10 @@ async def main(login=None,password=None,token=None,destinations=None):
     sessions = {}
 
     # Работа с сетью имеет четко "событийный" характер, поэтому на каждое из возможных событий необходимо определить callback
-    megafon.OnAcceptCall = call_accepted        # вызов может быть не разрешен (нет денег и т.п.), поэтому такое событие существует
-    megafon.OnAnswerCall = call_answered        # возникает, когда абонент B снял трубку
-    megafon.OnRejectCall = call_rejected        # возникает при отбое (возвращается причина - занятно и т.п.)
-    megafon.OnTerminateCall = call_terminated   # возникает по завершению вызова
+    megafon.onCallAccept = call_accepted        # вызов может быть не разрешен (нет денег и т.п.), поэтому такое событие существует
+    megafon.onCallAnswer = call_answered        # возникает, когда абонент B снял трубку
+    megafon.onCallReject = call_rejected        # возникает при отбое (возвращается причина - занятно и т.п.)
+    megafon.onCallTerminate = call_terminated   # возникает по завершению вызова
 
     try:
         await megafon.ws_connect()
@@ -85,7 +85,7 @@ async def main(login=None,password=None,token=None,destinations=None):
                 print('Звоню на {0}... '.format(bnumber))
                 # запустили звонилку и ждем, пока не вывалится какое-либо событие. Внутри callback'а на
                 # событие flow_ev будет установлен флаг и работа программы должна продолжиться дальше
-                calling = await megafon.MakeCall(bnum=bnumber)
+                calling = await megafon.callMake(bnum=bnumber)
                 sessions.update({calling['data']['call_session']:bnumber})
                 await flow_ev.wait()
 
@@ -94,7 +94,8 @@ async def main(login=None,password=None,token=None,destinations=None):
                     return
 
                 flow_ev.clear()
-                await megafon.PlayAnnouncement(call_session=calling['data']['call_session'],filename=play_file,timeout=100,dtmf_term='#')
+                #await megafon.callTonePlay(call_session=calling['data']['call_session'],tone_id="800",repeat=True)
+                await megafon.callFilePlay(call_session=calling['data']['call_session'],filename=play_file,timeout=100,dtmf_term='#')
                 await flow_ev.wait()
 
                 # если звонок был отбит или завершен, внутри соответствующего callback'а будет установлен terminated_ev и значит выходим
@@ -115,4 +116,3 @@ if len(sys.argv) == 4:
     asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destinations=sys.argv[3]))
 elif len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destinations=sys.argv[2]))
-

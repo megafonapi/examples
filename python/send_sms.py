@@ -16,7 +16,7 @@
 # https://realpython.com/async-io-python/
 # и раздел документации по самому пакету на 
 # https://docs.python.org/3/library/asyncio.html
-# Для удобства работы будем использовать пакет 'jsonrpc_websocket', который позволяет сильно упростить синтаксис
+# Для удобства работы будем использовать пакет 'jsonrpc_websocket', который  сильно упростить синтаксис
 # работы с JSON-RPC 
 
 import sys
@@ -45,14 +45,14 @@ async def main(login=None,password=None,token=None,destinations=None):
     elif (login and password):
         megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
 
-    megafon.OnSMSDelivery = sms_delivered
+    megafon.onSMSDelivery = sms_delivered
 
     try:
         await megafon.ws_connect()
         with open(destinations,'r') as phones:
             for bnumber in phones:
                 bnumber = bnumber.rstrip('\n')
-                response = await megafon.SendSMS(to=bnumber, message='Кожанные мешки, я МегаФон.API',type='TEXT',data_coding=24)
+                response = await megafon.smsSend(to=bnumber, message='Кожанные мешки, я МегаФон.API',type='TEXT',data_coding=24)
                 print(response)
                 print("Response sms_id: {0}. Status {1}".format(response['data']['sms_id'],response['data']['status']))
     except ProtocolError as e:

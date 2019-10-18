@@ -82,7 +82,7 @@ def incoming(call_session, anum, bnum):
 # Делаем исходящий вызов. создаем 
 async def callDestination(destination):
     global megafon, calls, outgoingCall
-    response = await megafon.MakeCall(bnum=destination)
+    response = await megafon.callMake(bnum=destination)
     session = response['data']['call_session']
     # пока в качестве anum поставим 'None': не охота доставать его из логина, особенно когда аутентификация по JWT
     outgoingCall = Call(session,None,destination)
@@ -98,12 +98,12 @@ async def main(login=None,password=None,token=None,destination=None):
         megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
 
     # Вешаем callback'и на нужные нам события
-    megafon.OnIncomingCall = incoming
-    megafon.OnAcceptCall = accepted
-    megafon.OnAnswerCall = answered
-    megafon.OnRejectCall = rejected
-    megafon.OnCollectDtmf = collected
-    megafon.OnTerminateCall = terminated
+    megafon.onCallIncoming = incoming
+    megafon.onCallAccept = accepted
+    megafon.onCallAnswer = answered
+    megafon.onCallReject = rejected
+    megafon.onDTMFCollect = collected
+    megafon.onCallTerminate = terminated
 
     # это событие будет означать новый поступивший входящий вызов
     newCall = asyncio.Event()
@@ -116,8 +116,8 @@ async def main(login=None,password=None,token=None,destination=None):
         await newCall.wait()
 
         # Ответили на звонок - "сняли трубку" и проиграли приглашение
-        await megafon.AnswerCall(call_session=incomingCall.session)
-        await megafon.PlayAnnouncement(call_session=incomingCall.session, filename='leather.pcm', dtmf_term='#', timeout=100)
+        await megafon.callAnswer(call_session=incomingCall.session)
+        await megafon.callFilePlay(call_session=incomingCall.session, filename='leather.pcm', dtmf_term='#', timeout=100)
 
         # Ждем либо завершения входящего звонка, либо согласия (нажатия на клавишу)
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
@@ -133,7 +133,7 @@ async def main(login=None,password=None,token=None,destination=None):
 
         # делаем звонок и играем ему тоновый сигнал
         await callDestination(destination)
-        await megafon.PlayTone(call_session=incomingCall.session, tone_id=1)
+        await megafon.callTonePlay(call_session=incomingCall.session, tone_id="500")
 
         # Опять ждем: либо отбоя во входящм или исходящем плече, либо ответа на исходящий вызов
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
@@ -148,7 +148,7 @@ async def main(login=None,password=None,token=None,destination=None):
            task.cancel()
 
         # Играем приветствие в исходящий вызов
-        await megafon.PlayAnnouncement(call_session=outgoingCall.session, filename='leather.pcm', dtmf_term='#', timeout=100)
+        await megafon.callFilePlay(call_session=outgoingCall.session, filename='leather.pcm', dtmf_term='#', timeout=100)
 
         # и опять - ждем либо отбоя в обоих плечах, либо согласия (нажатия на клавишу)
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
@@ -163,7 +163,7 @@ async def main(login=None,password=None,token=None,destination=None):
            task.cancel()
 
         # Объединяем оба плеча в один вызов ("тромбон") и оба абонента разговаривают
-        await megafon.TromboneCall(a_session=incomingCall.session, b_session=outgoingCall.session)
+        await megafon.callTrombone(a_session=incomingCall.session, b_session=outgoingCall.session)
         # пока кто-то из них (в каком-либо из плеч не отбился)
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
         outgoingTerminated = asyncio.create_task(outgoingCall.terminated.wait())
@@ -182,4 +182,3 @@ if len(sys.argv) == 4:
     asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destination=sys.argv[3]))
 elif len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destination=sys.argv[2]))
-

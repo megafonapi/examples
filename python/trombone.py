@@ -15,6 +15,8 @@
 import sys
 import json
 import aiohttp
+import urllib3
+import shutil
 import asyncio
 from jsonrpc_websocket import Server, ProtocolError
 
@@ -24,8 +26,34 @@ activeSessions = None
 sessions = None
 call = None
 
+user_token = None
+user_login = None
+user_password = None
+
+def get_file(fname):
+    global user_login,user_password
+
+    records_url = "http://testapi.megafon.ru/media/records/"
+    print("Получаю запись {0}".format(fname))
+    http = urllib3.PoolManager()
+    if(user_login and user_password):
+        mfapi_auth_header = urllib3.util.make_headers(basic_auth=user_login+':'+user_password)
+        with http.request('GET',records_url+fname, headers=mfapi_auth_header, preload_content=False) as resp, open(fname, 'wb') as out_file:
+            shutil.copyfileobj(resp, out_file)
+        resp.release_conn()
+    elif(user_token):
+        print("Не могу пока загружать с токеном - хрен его знает, как это работает в urllib3!")
+
+async def setSubscribedEvents(call_session):
+    subsd = dict.fromkeys(["voiceActivity","soundQuality"],True)
+    # Будем ловить события наличия голоса в медиапотоке и качества звука через SubscribeForEvents(). Эти события
+    # не приходят автоматически
+    subs_events = await megafon.eventSubscribe(call_session=call_session,events=subsd)
+    print('Подписан на события {0}'.format(subs_events['message']))
+
 def call_accepted(call_session):
     print("Вызов {0} разрешен. Играю КПВ для {1}...".format(call_session,sessions[call_session]))
+    asyncio.get_event_loop().create_task(setSubscribedEvents(call_session))
 
 def call_answered(call_session):
     global activeSessions
@@ -45,19 +73,28 @@ def call_terminated(call_session,cause,message):
 
 def record_completed(call_session, record_id, sequence_number, filename, dtmf):
     print('Запись {0} для {1} в файле {2} завершена. Нажата клавиша {3}'.format(sequence_number,record_id,filename,dtmf))
+    get_file(filename)
 
 def fragment_completed(call_session, record_id, sequence_number, filename, silence):
-    print('Фрагмент {0} для {1} в файле {2} завершен'.format(sequence_number,record_id,filename))
+    print('Фрагмент {0} для {1} в файле {2} завершен. Закрыто по тишине? {3}'.format(sequence_number,record_id,filename,silence))
+    get_file(filename)    
+
+def detect_silence(call_session):
+    print('В сессии {0} для {1} нет голоса более 1 секунды'.format(call_session,sessions[call_session]))
+
+def detect_sound(call_session):
+    print('В сессии {0} для {1} появился голос'.format(call_session,sessions[call_session]))
 
 async def callDestination(destination):
     global sessions,call
-    response = await megafon.MakeCall(bnum=destination)
+    response = await megafon.callMake(bnum=destination)
     sessions.update({response['data']['call_session']:destination})
     return response['data']['call_session']
 
 async def play_before_trombone(call_session):
     global activeSessions
-    await megafon.PlayAnnouncement(call_session=call_session,filename='stay_connected.pcm',timeout=100,dtmf_term="#")    
+    await megafon.callTonePlay(call_session=call_session,tone_id="500",repeat=True)
+#    await megafon.callFilePlay(call_session=call_session,filename='stay_connected.pcm',timeout=100,dtmf_term="#")    
 
 
 async def main(login=None,password=None,token=None,destinations=None):
@@ -65,19 +102,25 @@ async def main(login=None,password=None,token=None,destinations=None):
     global sessions
     global activeSessions
     global call
+    global user_token,user_login,user_password
 
     # Создаем соединение с сетью и аутентифицируемся
     if (token):
         megafon = Server(endpoint_url, headers={'Authorization':'JWT '+token})
+        user_token = token
     elif (login and password):
         megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
+        user_login = login
+        user_password = password
 
-    megafon.OnAcceptCall = call_accepted
-    megafon.OnAnswerCall = call_answered
-    megafon.OnRejectCall = call_rejected
-    megafon.OnTerminateCall = call_terminated
-    megafon.OnCallRecordFragment = fragment_completed
-    megafon.OnStopCallRecord = record_completed
+    megafon.onCallAccept = call_accepted
+    megafon.onCallAnswer = call_answered
+    megafon.onCallReject = call_rejected
+    megafon.onCallTerminate = call_terminated
+    megafon.onCallFragmentRecord = fragment_completed
+    megafon.onCallRecord = record_completed
+    megafon.onSilenceDetect = detect_silence
+    megafon.onSoundDetect = detect_sound
 
     sessions = {}
 
@@ -93,10 +136,10 @@ async def main(login=None,password=None,token=None,destinations=None):
 
         print('Обе сессии {0} и {1} установлены'.format(callSessions[0],callSessions[1]))
         call.clear()
-        trom = await megafon.TromboneCall(a_session=callSessions[0],b_session=callSessions[1])
+        trom = await megafon.callTrombone(a_session=callSessions[0],b_session=callSessions[1])
         print('Тромбон сообщает: {0}'.format(trom['message']))
 
-        rec = await megafon.StartCallRecord(call_session=callSessions[0],detect_silence=False,dtmf_term='#')
+        rec = await megafon.callRecordingStart(call_session=callSessions[0],detect_silence=False,dtmf_term='#')
         print('Запись с идентификатором {0} начата'.format(rec['data']['record_id']))
 
         await call.wait()

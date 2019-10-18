@@ -54,11 +54,17 @@ def no_digits(call_session):
 
 def collected(call_session, dtmf):
     global activeCalls    
-    print("Вызов {0} на номер {1} дал согласие, нажав: {2}".format(call_session,activeCalls[call_session].bnumber, dtmf))
-    # Согласие получено: ставим флаг и входим в конференцию
-    activeCalls[call_session].agreed.set()
-    asyncio.get_event_loop().create_task(enterConf(call_session))
-    # Можно обработать рзные DTMF'ы и удалять участника из конференции (вызвать leaveConf)
+    print("Вызов {0} на номер {1} нажал: {2}".format(call_session,activeCalls[call_session].bnumber, dtmf))
+    # Можно обработать рзные DTMF'ы и глушить/удалять участника из конференции. Если нажат 0, глушим, если 1 - восстанавливаем
+    # Если все остальное - запускаем в конференцию
+    if dtmf == '0':
+        asyncio.get_event_loop().create_task(muteSession(call_session))
+    elif dtmf == '1':
+        asyncio.get_event_loop().create_task(unmuteSession(call_session))
+    else:
+        # Согласие получено: ставим флаг и входим в конференцию
+        activeCalls[call_session].agreed.set()
+        asyncio.get_event_loop().create_task(enterConf(call_session))
 
 # Возможные значения возвращаемых кодов ISUP и их смысл можно найти, например, в RFC3398 (стр. 25)
 def call_rejected(call_session,sipCode,cause,message):
@@ -77,30 +83,38 @@ def conf_record_stop(conf_session, record_id, sequence_number, filename):
     print("Conference record stop [{0}]: {1}".format(sequence_number, filename))
 
 async def terminate_call (call_session):
-    resp1 = await megafon.TerminateCall(call_session)
+    resp1 = await megafon.callTerminate(call_session)
     print('Вызов {0} принудительно завершен. Код завершения {1}'.format(call_session,resp1['data']['message']))
 
 async def confStatus(conferenceId):
-    await megafon.StartConfRecord(conf_session = conferenceId)
+    await megafon.confRecordingStart(conf_session = conferenceId)
     # раз в пять секунд смотрим, сколько длится конференция и сколько в ней участников
     while True:
-        resp2 = await megafon.StatusConf(conf_session = conferenceId)
+        resp2 = await megafon.confStatusGet(conf_session = conferenceId)
         print('Конференция длится {0} секунд, в ней {1} участников'.format(resp2['data']['duration'],resp2['data']['participant_count']))
         await asyncio.sleep(5)
 
 async def enterConf(call_session):
-    await megafon.AddToConf(call_session=call_session, conf_session=confId)
+    await megafon.confAdd(call_session=call_session, conf_session=confId)
 
 async def leaveConf(call_session):
-    await megafon.RemoveFromConf(call_session=call_session, conf_session=confId)
+    await megafon.confRemove(call_session=call_session, conf_session=confId)
     # тут по правилам надо бы удалять call_session из activeCalls и завершать эту сессию
 
+async def muteSession(call_session):
+    await megafon.confConfereeMute(call_session)
+    # заглушаем восходящий голосовой тракт
+
+async def unmuteSession(call_session):
+    await megafon.confConfereeUnmute(call_session)
+    # восстанавливаем восходящий голосовой тракт
+
 async def play(call_session):
-    await megafon.PlayAnnouncement(call_session=call_session,filename='conference.pcm',timeout=100,dtmf_term="#")
+    await megafon.callFilePlay(call_session=call_session,filename='conference.pcm',timeout=100,dtmf_term="#")
 
 async def callDestination(destination):
     global megafon,activeCalls
-    response = await megafon.MakeCall(bnum=destination)
+    response = await megafon.callMake(bnum=destination)
     session = response['data']['call_session']
     outgoingCall = Call(session,destination)
     activeCalls[session] = outgoingCall
@@ -117,19 +131,19 @@ async def main(login=None,password=None,token=None,destinations=None):
 
     # Работа с сетью имеет четко "событийный" характер, поэтому на каждое из возможных в сценарии событий необходимо 
     # определить свой callback
-    megafon.OnAcceptCall = call_accepted
-    megafon.OnAnswerCall = call_answered
-    megafon.OnPlayAnnouncement = no_digits
-    megafon.OnCollectDtmf = collected
-    megafon.OnRejectCall = call_rejected
-    megafon.OnTerminateCall = call_terminated
-    megafon.OnConfRecordFragment = conf_record_fragment
-    megafon.OnStopConfRecord = conf_record_stop
+    megafon.onCallAccept = call_accepted
+    megafon.onCallAnswer = call_answered
+    megafon.onCallFilePlay = no_digits
+    megafon.onDTMFCollect = collected
+    megafon.onCallReject = call_rejected
+    megafon.onCallTerminate = call_terminated
+    megafon.onConfFragmentRecord = conf_record_fragment
+    megafon.onConfRecord = conf_record_stop
 
     try:
         # Соединямся и создаем конференцию
         await megafon.ws_connect()
-        response = await megafon.CreateConf()
+        response = await megafon.confMake()
         confId = response['data']['conf_session']
         print('Конференция {0} создана...'.format(confId))
 
@@ -145,7 +159,7 @@ async def main(login=None,password=None,token=None,destinations=None):
         await asyncio.gather(*(activeCalls[s].terminated.wait() for s in callSessions))
 
         # Останавливаем запись конференции
-        await megafon.StopConfRecord(conf_session = confId)
+        await megafon.confRecordingStop(conf_session = confId)
 
         # Останавливаем мониторинг количества участников
         confStatusTask.cancel()
