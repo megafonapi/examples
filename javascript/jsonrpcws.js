@@ -19,7 +19,7 @@ class JsonRpcWs {
 		}
 		this.socket.onmessage = message => {
 			const data = JSON.parse(message.data);
-			console.log({ response : data });
+			//console.log({ response : data });
 			if (data.result) {
 				console.log({ response : data });
 				if (this.eventHandlers['OnSuccess'])

@@ -23,15 +23,15 @@ $ua->websocket("wss://$login:$password\@testapi.megafon.ru/v1/api" => sub {
 	$tx->on(json => sub {
 		my ($tx, $json) = @_;
 		say 'Response : '.(encode_json $json);
-		if ($json->{method} and $json->{method} eq 'OnAnswerCall') {
-			$request->('PlayAnnouncement', { call_session => $json->{params}{call_session}, filename => 'welcome.pcm' });
-		} elsif ($json->{method} and $json->{method} eq 'OnPlayAnnouncement') {
-			$request->('TerminateCall', { call_session => $json->{params}{call_session} });
-		} elsif ($json->{method} and $json->{method} eq 'OnTerminateCall') {
+		if ($json->{method} and $json->{method} eq 'onCallAnswer') {
+			$request->('callFilePlay', { call_session => $json->{params}{call_session}, filename => 'welcome.pcm' });
+		} elsif ($json->{method} and $json->{method} eq 'onCallFilePlay') {
+			$request->('callTerminate', { call_session => $json->{params}{call_session} });
+		} elsif ($json->{method} and $json->{method} eq 'onCallTerminate') {
 			$tx->finish;
 		}
 	});
-	$request->('MakeCall', { bnum => $destination });
+	$request->('callMake', { bnum => $destination });
 });
 
 Mojo::IOLoop->start unless Mojo::IOLoop->is_running;
