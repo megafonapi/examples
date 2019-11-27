@@ -52,7 +52,7 @@ async def main(login=None,password=None,token=None,destinations=None):
         with open(destinations,'r') as phones:
             for bnumber in phones:
                 bnumber = bnumber.rstrip('\n')
-                response = await megafon.smsSend(to=bnumber, message='Кожанные мешки, я МегаФон.API',type='TEXT',data_coding=24)
+                response = await megafon.smsSend(bnum=bnumber, message='Кожанные мешки, я МегаФон.API',type='TEXT',data_coding=24)
                 print(response)
                 print("Response sms_id: {0}. Status {1}".format(response['data']['sms_id'],response['data']['status']))
     except ProtocolError as e:
