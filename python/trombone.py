@@ -125,7 +125,9 @@ async def main(login=None,password=None,token=None,destinations=None):
     sessions = {}
 
     try:
+        # Соединяемся и выставляем режим сохранения транзакций, если контроль за сессией исчезает
         await megafon.ws_connect()
+        await megafon.setOptions(on_connection_lost="KEEP_ALIVE")
         call = asyncio.Event()
 
         # Устанаваливаем два плеча для "тромбона"

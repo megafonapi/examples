@@ -83,7 +83,7 @@ def conf_record_stop(conf_session, record_id, sequence_number, filename):
     print("Conference record stop [{0}]: {1}".format(sequence_number, filename))
 
 async def terminate_call (call_session):
-    resp1 = await megafon.callTerminate(call_session)
+    resp1 = await megafon.callTerminate(call_session=call_session)
     print('Вызов {0} принудительно завершен. Код завершения {1}'.format(call_session,resp1['data']['message']))
 
 async def confStatus(conferenceId):
@@ -102,11 +102,11 @@ async def leaveConf(call_session):
     # тут по правилам надо бы удалять call_session из activeCalls и завершать эту сессию
 
 async def muteSession(call_session):
-    await megafon.confConfereeMute(call_session)
+    await megafon.confConfereeMute(call_session=call_session)
     # заглушаем восходящий голосовой тракт
 
 async def unmuteSession(call_session):
-    await megafon.confConfereeUnmute(call_session)
+    await megafon.confConfereeUnmute(call_session=call_session)
     # восстанавливаем восходящий голосовой тракт
 
 async def play(call_session):
@@ -151,14 +151,14 @@ async def main(login=None,password=None,token=None,destinations=None):
         confStatusTask = asyncio.get_event_loop().create_task(confStatus(confId))
 
         # Создаём трансляцию в интернет
-        #confInternet = await megafon.confBroadcastCreate(conf_session=confId)
-        #print("Интернет-адрес трансляции конференции на {0}".format(confInternet['data']['url']))
+        confInternet = await megafon.confBroadcastCreate(conf_session=confId)
+        print("Интернет-адрес трансляции конференции на {0}".format(confInternet['data']['url']))
 
         # Подключаем живую интернет-трансляцию. Примеры:
         # icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps или us4.internet-radio.com:8266
         # Префикс shout:// обязателен
-        liveInternet = await megafon.confBroadcastConnect(conf_session=confId,url="shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps")
-        print("Подключаем интернет-поток {0}".format(liveInternet['message']))
+        #liveInternet = await megafon.confBroadcastConnect(conf_session=confId,url="shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps")
+        #print("Подключаем интернет-поток {0}".format(liveInternet['message']))
 
         # Читаем файл с номерами (убираем '\n' в конце каждой строки), пишем номера в список,
         # после чего поднимаем все звонковые сессии одновременно        
@@ -169,8 +169,8 @@ async def main(login=None,password=None,token=None,destinations=None):
         await asyncio.gather(*(activeCalls[s].terminated.wait() for s in callSessions))
 
         # Отключаем Интернет-поток
-        await megafon.confBroadcastDisconnect(conf_session = confId)
-        #await megafon.confBroadcastDestroy(conf_session = confId)
+        #await megafon.confBroadcastDisconnect(conf_session = confId)
+        await megafon.confBroadcastDestroy(conf_session = confId)
 
         # Останавливаем мониторинг количества участников
         confStatusTask.cancel()

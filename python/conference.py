@@ -37,7 +37,7 @@ activeCalls = {}
 
 def call_accepted(call_session):
     global activeCalls
-    print("Вызов {0} на номер {1} возможен. Играю КПВ...".format(call_session,activeCalls[call_session].bnumber))
+    print("Вызов {0} на номер {1} разрешен. Играю КПВ...".format(call_session,activeCalls[call_session].bnumber))
 
 def call_answered(call_session):
     global activeCalls    
@@ -83,8 +83,8 @@ def conf_record_stop(conf_session, record_id, sequence_number, filename):
     print("Conference record stop [{0}]: {1}".format(sequence_number, filename))
 
 async def terminate_call (call_session):
-    resp1 = await megafon.callTerminate(call_session)
-    print('Вызов {0} принудительно завершен. Код завершения {1}'.format(call_session,resp1['data']['message']))
+    resp1 = await megafon.callTerminate(call_session=call_session)
+    print('Вызов {0} принудительно завершен. Статус завершения: {1}'.format(call_session,resp1['message']))
 
 async def confStatus(conferenceId):
     await megafon.confRecordingStart(conf_session = conferenceId)
@@ -150,16 +150,28 @@ async def main(login=None,password=None,token=None,destinations=None):
         # Запускаем мониторинг количества участников конференции
         confStatusTask = asyncio.get_event_loop().create_task(confStatus(confId))
 
+        # Создаём трансляцию в интернет
+        confInternet = await megafon.confBroadcastCreate(conf_session=confId)
+        print("Интернет-адрес трансляции конференции на {0}".format(confInternet['data']['url']))
+
+        # Подключаем живую интернет-трансляцию. Примеры:
+        # icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps или us4.internet-radio.com:8266
+        # Префикс shout:// обязателен
+        #liveInternet = await megafon.confBroadcastConnect(conf_session=confId,url="shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps")
+        #print("Подключаем интернет-поток {0}".format(liveInternet['message']))
+
         # Читаем файл с номерами (убираем '\n' в конце каждой строки), пишем номера в список,
         # после чего поднимаем все звонковые сессии одновременно        
         dest_list = [line.rstrip('\n') for line in open(destinations)]
         callSessions = await asyncio.gather(*(callDestination(dest) for dest in dest_list))
-        
+
         # Начинаем мониторить события завершения всех сессий
         await asyncio.gather(*(activeCalls[s].terminated.wait() for s in callSessions))
 
-        # Останавливаем запись конференции
+        # Останавливаем запись конференции и отключаем Интернет-поток
         await megafon.confRecordingStop(conf_session = confId)
+        #await megafon.confBroadcastDisconnect(conf_session = confId)
+        await megafon.confBroadcastDestroy(conf_session = confId)
 
         # Останавливаем мониторинг количества участников
         confStatusTask.cancel()

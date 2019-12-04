@@ -20,7 +20,7 @@ import asyncio
 from jsonrpc_websocket import Server, ProtocolError
 
 endpoint_url = 'wss://testapi.megafon.ru/v1/api'
-play_file = 'leather.pcm'
+play_file = 'testing.pcm'
 megafon = None
 
 terminated_ev = None
