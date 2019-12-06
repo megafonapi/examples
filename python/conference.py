@@ -3,6 +3,8 @@
 
 # Программа создает конференцию и добавлят в нее абонентов по списку из 'destinations'. По каждому из номеров в
 # этом файле осуществляется вызов, проигрывание приглашения и ожидания согласия (получения DTMF) на вход в конференцию.
+# Между 20 и 30 секундой звонок на номер, указанный в mute_number будет заглушен.
+# Осуществляется мониторинг состояния конференции и запись разгоров в файлы.
 #
 # Все вызовы происходят в параллельном режиме, для чего используется только механика "Питона" (пакет asyncio)
 
@@ -33,7 +35,11 @@ class Call:
 endpoint_url = 'wss://testapi.megafon.ru/v1/api'
 megafon = None
 confId = None
+mute_session = None
 activeCalls = {}
+
+# Тут можно написать номер, сессия которого будет заглушена на 10 секунд (например, mute_number = '79281234567')
+mute_number = None
 
 def call_accepted(call_session):
     global activeCalls
@@ -55,26 +61,19 @@ def no_digits(call_session):
 def collected(call_session, dtmf):
     global activeCalls    
     print("Вызов {0} на номер {1} нажал: {2}".format(call_session,activeCalls[call_session].bnumber, dtmf))
-    # Можно обработать рзные DTMF'ы и глушить/удалять участника из конференции. Если нажат 0, глушим, если 1 - восстанавливаем
-    # Если все остальное - запускаем в конференцию
-    if dtmf == '0':
-        asyncio.get_event_loop().create_task(muteSession(call_session))
-    elif dtmf == '1':
-        asyncio.get_event_loop().create_task(unmuteSession(call_session))
-    else:
-        # Согласие получено: ставим флаг и входим в конференцию
-        activeCalls[call_session].agreed.set()
-        asyncio.get_event_loop().create_task(enterConf(call_session))
+    # Чего-то нажал - идём в конференцию. Не нажал - логика уйдёт в no_digits()    
+    activeCalls[call_session].agreed.set()
+    asyncio.get_event_loop().create_task(enterConf(call_session))
 
 # Возможные значения возвращаемых кодов ISUP и их смысл можно найти, например, в RFC3398 (стр. 25)
 def call_rejected(call_session,sipCode,cause,message):
-    print("Вызов {0} отклонен по причине SIP={1}, ISUP={2} и сообщением {3}".format(call_session,sipCode,cause,message))    
-    call_terminated(call_session,cause,message)
+    print("Вызов {0} на номер {1} отклонен по причине SIP={2}, ISUP={3} и сообщением {4}".format(call_session,activeCalls[call_session].bnumber,sipCode,cause,message))    
+    call_terminated(call_session,sipCode,cause,message)
 
-def call_terminated(call_session,cause,message):
+def call_terminated(call_session,sipCode,cause,message):
     global activeCalls
     activeCalls[call_session].terminated.set()
-    print("Вызов {0} на номер {1} завершен по причине ISUP={2} с сообщением {3}".format(call_session,activeCalls[call_session].bnumber,cause,message))
+    print("Вызов {0} на номер {1} завершен по причине SIP={2}, ISUP={3} и сообщением {4}".format(call_session,activeCalls[call_session].bnumber,sipCode,cause,message))
 
 def conf_record_fragment(conf_session, record_id, sequence_number, filename):
     print("Conference record fragment [{0}]: {1}".format(sequence_number, filename))
@@ -87,11 +86,25 @@ async def terminate_call (call_session):
     print('Вызов {0} принудительно завершен. Статус завершения: {1}'.format(call_session,resp1['message']))
 
 async def confStatus(conferenceId):
+    global mute_number,mute_session
+    
     await megafon.confRecordingStart(conf_session = conferenceId)
     # раз в пять секунд смотрим, сколько длится конференция и сколько в ней участников
+    m=0
     while True:
         resp2 = await megafon.confStatusGet(conf_session = conferenceId)
-        print('Конференция длится {0} секунд, в ней {1} участников'.format(resp2['data']['duration'],resp2['data']['participant_count']))
+        duration = int(resp2['data']['duration'])
+        print('Конференция длится {0} секунд, в ней {1} участников'.format(duration,resp2['data']['participant_count']))
+        if mute_session != None and 20 <= duration <= 30:            
+            if m == 0:
+                rm = await megafon.confConfereeMute(call_session=mute_session)
+                print('Сессия {0} на {1} заглушена: {2}'.format(mute_session,mute_number,rm['message']))
+                m=1
+        else:
+            if m == 1:
+                rm = await megafon.confConfereeUnmute(call_session=mute_session)
+                print('Сессия {0} на {1} восстановлена: {2}'.format(mute_session,mute_number,rm['message']))        
+                m=0   
         await asyncio.sleep(5)
 
 async def enterConf(call_session):
@@ -101,21 +114,17 @@ async def leaveConf(call_session):
     await megafon.confRemove(call_session=call_session, conf_session=confId)
     # тут по правилам надо бы удалять call_session из activeCalls и завершать эту сессию
 
-async def muteSession(call_session):
-    await megafon.confConfereeMute(call_session)
-    # заглушаем восходящий голосовой тракт
-
-async def unmuteSession(call_session):
-    await megafon.confConfereeUnmute(call_session)
-    # восстанавливаем восходящий голосовой тракт
-
 async def play(call_session):
     await megafon.callFilePlay(call_session=call_session,filename='conference.pcm',timeout=100,dtmf_term="#")
 
 async def callDestination(destination):
     global megafon,activeCalls
+    global mute_number,mute_session
     response = await megafon.callMake(bnum=destination)
     session = response['data']['call_session']
+    if destination == mute_number:
+        mute_session = session
+        print('Будем глушить сессию {0} на {1}'.format(mute_session,mute_number))
     outgoingCall = Call(session,destination)
     activeCalls[session] = outgoingCall
     return session
@@ -150,16 +159,6 @@ async def main(login=None,password=None,token=None,destinations=None):
         # Запускаем мониторинг количества участников конференции
         confStatusTask = asyncio.get_event_loop().create_task(confStatus(confId))
 
-        # Создаём трансляцию в интернет
-        confInternet = await megafon.confBroadcastCreate(conf_session=confId)
-        print("Интернет-адрес трансляции конференции на {0}".format(confInternet['data']['url']))
-
-        # Подключаем живую интернет-трансляцию. Примеры:
-        # icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps или us4.internet-radio.com:8266
-        # Префикс shout:// обязателен
-        #liveInternet = await megafon.confBroadcastConnect(conf_session=confId,url="shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps")
-        #print("Подключаем интернет-поток {0}".format(liveInternet['message']))
-
         # Читаем файл с номерами (убираем '\n' в конце каждой строки), пишем номера в список,
         # после чего поднимаем все звонковые сессии одновременно        
         dest_list = [line.rstrip('\n') for line in open(destinations)]
@@ -170,8 +169,6 @@ async def main(login=None,password=None,token=None,destinations=None):
 
         # Останавливаем запись конференции и отключаем Интернет-поток
         await megafon.confRecordingStop(conf_session = confId)
-        #await megafon.confBroadcastDisconnect(conf_session = confId)
-        await megafon.confBroadcastDestroy(conf_session = confId)
 
         # Останавливаем мониторинг количества участников
         confStatusTask.cancel()
