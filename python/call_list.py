@@ -46,9 +46,9 @@ def call_rejected(call_session,sipCode,cause,message):
     terminated_ev.set()
     flow_ev.set()
 
-def call_terminated(call_session,cause,message):
+def call_terminated(call_session,sipCode,cause,message):
     global flow_ev,terminated_ev
-    print('Вызов {0} завершен с кодом ISUP={1} и сообщением {2}'.format(call_session,cause,message))
+    print('Вызов {0} завершен с кодом SIP={1}, ISUP={2} и сообщением {3}'.format(call_session,sipCode,cause,message))
     terminated_ev.set()
     flow_ev.set()
 

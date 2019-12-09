@@ -23,10 +23,10 @@
 * на [JavaScript](/javascript) с использованием собственной реализации JSON-RPC/WebSocket для современных браузеров в виде класса в отдельном файле
 * на [Perl](/perl) с использованием библиотечной реализации WebSocket и обработкой запросов/ответов JSON-RPC вручную
 
-В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом:
+В примерах используются аудиофайлы, доступные по протоколу WebDAV (т.е. фактически посредством простого REST API). Их можно скачать/загрузить/удалить с помощью curl следующим образом при аутентификации либо по имени пользователя/паролю или с посмощью токена в заголовке:
 
 ```
-$ curl -X GET --user <login>:<password> http://testapi.megafon.ru/media/prompts/welcome.pcm
+$ curl -X GET -H "Authorization: JWT eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9" http://testapi.megafon.ru/media/prompts/welcome.pcm
 $ curl -X PUT -T welcome.alaw --user <login>:<password> http://testapi.megafon.ru/media/prompts/welcome.pcm
 $ curl -X DELETE --user <login>:<password> http://testapi.megafon.ru/media/prompts/welcome.pcm
 ```

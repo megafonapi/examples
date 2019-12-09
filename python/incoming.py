@@ -49,12 +49,12 @@ def accepted(call_session):
 # Возможные значения возвращаемых кодов ISUP и их смысл можно найти, например, в RFC3398 (стр. 25)
 def rejected(call_session,sipCode,cause,message):    
     print("Вызов {0} отклонен по причине SIP={1}, ISUP={2} с сообщением {3}".format(call_session,sipCode,cause,message))       
-    terminated(call_session,cause,message)
+    terminated(call_session,sipCode,cause,message)
 
 # Если прилетает событие завершения сессии, говорим об этом и выставляем флаг события
-def terminated(call_session,cause,message):
+def terminated(call_session,sipCode,cause,message):
     global calls
-    print('Вызов {0} завершен с кодом ISUP={1} и сообщением {2}'.format(call_session,cause,message))
+    print('Вызов {0} завершен с кодом SIP={1}, ISUP={2} и сообщением {3}'.format(call_session,sipCode,cause,message))
     calls[call_session].terminated.set()
 
 # Если на звонок ответили, то пишем про это и выставляем флаг события 

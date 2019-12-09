@@ -15,8 +15,7 @@
 import sys
 import json
 import aiohttp
-import urllib3
-import shutil
+import requests
 import asyncio
 from jsonrpc_websocket import Server, ProtocolError
 
@@ -35,14 +34,11 @@ def get_file(fname):
 
     records_url = "http://testapi.megafon.ru/media/records/"
     print("Получаю запись {0}".format(fname))
-    http = urllib3.PoolManager()
     if(user_login and user_password):
-        mfapi_auth_header = urllib3.util.make_headers(basic_auth=user_login+':'+user_password)
-        with http.request('GET',records_url+fname, headers=mfapi_auth_header, preload_content=False) as resp, open(fname, 'wb') as out_file:
-            shutil.copyfileobj(resp, out_file)
-        resp.release_conn()
+        r = requests.get(records_url+fname,auth=(user_login,user_password))
     elif(user_token):
-        print("Не могу пока загружать с токеном - хрен его знает, как это работает в urllib3!")
+        r = requests.get(records_url+fname,headers={'Authorization':'JWT '+user_token})
+    open(fname,'wb').write(r.content)
 
 async def setSubscribedEvents(call_session):
     subsd = dict.fromkeys(["voiceActivity","soundQuality"],True)
@@ -64,11 +60,11 @@ def call_answered(call_session):
 # Возможные значения возвращаемых кодов ISUP и их смысл можно найти, например, в RFC3398 (стр. 25)
 def call_rejected(call_session,sipCode,cause,message):    
     print("Вызов {0} отклонен по причине SIP={1}, ISUP={2} с сообщением {3}".format(call_session,sipCode,cause,message))    
-    call_terminated(call_session,cause,message)
+    call_terminated(call_session,sipCode,cause,message)
 
-def call_terminated(call_session,cause,message):
+def call_terminated(call_session,sipCode,cause,message):
     global call
-    print('Вызов {0} завершен с кодом ISUP={1} и сообщением {2}'.format(call_session,cause,message))
+    print('Вызов {0} завершен с кодом SIP={1}, ISUP={2} и сообщением {3}'.format(call_session,sipCode,cause,message))
     call.set()    
 
 def record_completed(call_session, record_id, sequence_number, filename, dtmf):
