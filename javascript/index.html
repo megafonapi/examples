@@ -1,6 +1,7 @@
 <html>
 <head>
 <title>Megafon.API Example</title>
+<meta charset="utf-8">
 </head>
 <body>
 	<script type="text/javascript" src='jsonrpcws.js'></script>
@@ -65,12 +66,12 @@
 		console.log('Your browser does not support websockets and promises');
 	}
 	</script>
-
+	<br>
 	Для того, чтобы воспользоваться примером, введите ваш логин (номер телефона учётной записи), пароль и нажмите "Connect". После этого откроются поля ввода
 	для единичного вызов (кнопка Call) и конференции (кнопка Conference). Введя любой номер телефона в окне ввода и нажимая Call, можно осуществить звонок, после 
 	которого будет проиграно тестовое сообщение и вызов завершится. Введя любой номер телефона во втором окне ввода и нажимая Conf, можно присоединить вызов на этот
 	номер к множественной конференции. Повторяя эту операцию несколько раз, можно создать конференцию из нескольких участников.
-
+	<br><br>
 	<input id='login' placeholder='Login'>
 	<input id='password' placeholder='Password'>
 	<button id='connection'>Connect</button>
