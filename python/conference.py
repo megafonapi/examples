@@ -70,10 +70,10 @@ def call_rejected(call_session,sipCode,cause,message):
     print("Вызов {0} на номер {1} отклонен по причине SIP={2}, ISUP={3} и сообщением {4}".format(call_session,activeCalls[call_session].bnumber,sipCode,cause,message))    
     call_terminated(call_session,sipCode,cause,message)
 
-def call_terminated(call_session,sipCode,cause,message):
+def call_terminated(call_session,source,cause,message):
     global activeCalls
     activeCalls[call_session].terminated.set()
-    print("Вызов {0} на номер {1} завершен по причине SIP={2}, ISUP={3} и сообщением {4}".format(call_session,activeCalls[call_session].bnumber,sipCode,cause,message))
+    print("Вызов {0} на номер {1} завершен по причине SOURCE={2}, ISUP={3} и сообщением {4}".format(call_session,activeCalls[call_session].bnumber,source,cause,message))
 
 def conf_record_fragment(conf_session, record_id, sequence_number, filename):
     print("Conference record fragment [{0}]: {1}".format(sequence_number, filename))
@@ -134,9 +134,9 @@ async def main(login=None,password=None,token=None,destinations=None):
 
     # Создаем соединение с сетью и аутентифицируемся
     if (token):
-        megafon = Server(endpoint_url, headers={'Authorization':'JWT '+token})
-    elif (login and password):
-        megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
+        megafon = Server(endpoint_url+"/"+token)
+    else:
+        sys.exit(1)
 
     # Работа с сетью имеет четко "событийный" характер, поэтому на каждое из возможных в сценарии событий необходимо 
     # определить свой callback
@@ -178,7 +178,8 @@ async def main(login=None,password=None,token=None,destinations=None):
     await megafon.close()
     await megafon.session.close()
 
-if len(sys.argv) == 4:
-    asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destinations=sys.argv[3]))
-elif len(sys.argv) == 3:
+if len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destinations=sys.argv[2]))
+else:
+    print(f"Необходимый формат: {sys.argv[0]} <token> <файл со списком номеров>")
+    sys.exit(1)

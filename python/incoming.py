@@ -35,7 +35,7 @@ class Call:
         self.anumber = anumber
         self.bnumber = bnumber
         self.answered = asyncio.Event()
-        self.paymentAgree = asyncio.Event()
+        self.trombonAgree = asyncio.Event()
         self.terminated = asyncio.Event()
 
 # функция срабатывает на событие возможности установки соединения - ведь вызов может быть отклонен,
@@ -52,9 +52,9 @@ def rejected(call_session,sipCode,cause,message):
     terminated(call_session,sipCode,cause,message)
 
 # Если прилетает событие завершения сессии, говорим об этом и выставляем флаг события
-def terminated(call_session,sipCode,cause,message):
+def terminated(call_session,source,cause,message):
     global calls
-    print('Вызов {0} завершен с кодом SIP={1}, ISUP={2} и сообщением {3}'.format(call_session,sipCode,cause,message))
+    print('Вызов {0} завершен с кодом SOURCE={1}, ISUP={2} и сообщением {3}'.format(call_session,source,cause,message))
     calls[call_session].terminated.set()
 
 # Если на звонок ответили, то пишем про это и выставляем флаг события 
@@ -67,7 +67,7 @@ def answered(call_session):
 def collected(call_session, dtmf):
     global calls
     print('В процессе вызова {0} поступил код DTMF: {1}'.format(call_session, dtmf))
-    calls[call_session].paymentAgree.set()
+    calls[call_session].trombonAgree.set()
 
 # Поступил новый вызов. Создаем переменную класса Call, которая содержит сессию вызова и флаги различных событий,
 # связанных с нею. После этого записываем этот объект в словарь с ключом id сессии (входящих ведь может быть много)
@@ -93,9 +93,9 @@ async def main(login=None,password=None,token=None,destination=None):
 
    # Создаем соединение с сетью и аутентифицируемся
     if (token):
-        megafon = Server(endpoint_url, headers={'Authorization':'JWT '+token})
-    elif (login and password):
-        megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
+        megafon = Server(endpoint_url+"/"+token)
+    else:
+        sys.exit(1)
 
     # Вешаем callback'и на нужные нам события
     megafon.onCallIncoming = incoming
@@ -110,26 +110,30 @@ async def main(login=None,password=None,token=None,destination=None):
 
     try:
         # соединились с сокетом и ждем поступившего звонка
-        # когда он появится по событию OnIncomingCall, в callback-функции флаг в newCall будет выставлен
+        # когда он появится по событию OnCallIncoming, в callback-функции флаг в newCall будет выставлен
         # и исполнение программы продолжится 
         await megafon.ws_connect()
         await newCall.wait()
 
-        # Ответили на звонок - "сняли трубку" и проиграли приглашение
+        # Ответили на звонок: "сняли трубку" и проиграли приглашение
         await megafon.callAnswer(call_session=incomingCall.session)
+        #await megafon.callReject(call_session=incomingCall.session)
         await megafon.callFilePlay(call_session=incomingCall.session, filename='leather.pcm', dtmf_term='#', timeout=100)
 
         # Ждем либо завершения входящего звонка, либо согласия (нажатия на клавишу)
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
-        incomingAgree      = asyncio.create_task(incomingCall.paymentAgree.wait())
+        incomingAgree      = asyncio.create_task(incomingCall.trombonAgree.wait())
         done, pending = await asyncio.wait([ incomingTerminated, incomingAgree ], return_when=asyncio.FIRST_COMPLETED)
-        # Если входящий звонок завершен, то дальше нечего делать - выходим         
+        # Если входящий звонок завершен, то дальше нечего делать - выходим. Предварительно убъем остальное, чтобы не ругалась
+        # на не завершённую задачу
         if incomingTerminated in done:
-           return
+            for task in pending:
+                task.cancel()
+            return
         # Как только нажата клавиша завершаем оставшиеся ожидания (там, соответственно, incomingCall.terminated.wait()): ждать 
         # больше не надо, надо инициировать исходящий звонок на destination
         for task in pending:
-           task.cancel()
+            task.cancel()
 
         # делаем звонок и играем ему тоновый сигнал
         await callDestination(destination)
@@ -153,7 +157,7 @@ async def main(login=None,password=None,token=None,destination=None):
         # и опять - ждем либо отбоя в обоих плечах, либо согласия (нажатия на клавишу)
         incomingTerminated = asyncio.create_task(incomingCall.terminated.wait())
         outgoingTerminated = asyncio.create_task(outgoingCall.terminated.wait())
-        outgoingAgree      = asyncio.create_task(outgoingCall.paymentAgree.wait())
+        outgoingAgree      = asyncio.create_task(outgoingCall.trombonAgree.wait())
         # Если оба плеча отбились, то дальше делать нечего - завершаем
         done, pending = await asyncio.wait([ incomingTerminated, outgoingTerminated, outgoingAgree ], return_when=asyncio.FIRST_COMPLETED)
         if outgoingAgree not in done:
@@ -178,7 +182,9 @@ async def main(login=None,password=None,token=None,destination=None):
         await megafon.close()
         await megafon.session.close()
 
-if len(sys.argv) == 4:
-    asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destination=sys.argv[3]))
-elif len(sys.argv) == 3:
+if len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destination=sys.argv[2]))
+else:
+    print(f"Необходимый формат: {sys.argv[0]} <token> <номер>")
+    sys.exit(1)
+

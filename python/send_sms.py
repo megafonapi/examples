@@ -26,6 +26,9 @@ from jsonrpc_websocket import Server,ProtocolError
 
 endpoint_url = 'wss://testapi.megafon.ru/v1/api'
 megafon = None
+message_text = "Поздравляю с Новым Годом! Ваш МегаФон.API"
+#message_text = "Поздравляю с наступающим Новым Годом! Пусть 2020-ый станет годом реализации искренних желаний и годом, который несёт здоровье и любовь вам, вашим семьям и близким. Оглянитесь на прошедшее и оцените его по-достоинству. Взгляните в будущее с волнением и надеждой! С Новым Годом!"
+
 
 def sms_delivered(sms_id, status):
     print("SMS {0} delivered with status {1}".format(sms_id, status))
@@ -41,9 +44,9 @@ async def main(login=None,password=None,token=None,destinations=None):
 
     # Создаем соединение с сетью и аутентифицируемся
     if (token):
-        megafon = Server(endpoint_url, headers={'Authorization':'JWT '+token})
-    elif (login and password):
-        megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
+        megafon = Server(endpoint_url+"/"+token)
+    else:
+        sys.exit(1)
 
     megafon.onSMSDelivery = sms_delivered
 
@@ -52,8 +55,7 @@ async def main(login=None,password=None,token=None,destinations=None):
         with open(destinations,'r') as phones:
             for bnumber in phones:
                 bnumber = bnumber.rstrip('\n')
-                response = await megafon.smsSend(bnum=bnumber, message='Кожанные мешки, я МегаФон.API',type='TEXT',data_coding=24)
-                print(response)
+                response = await megafon.smsSend(bnum=bnumber, message=message_text,type='TEXT',data_coding=24)
                 print("Response sms_id: {0}. Status {1}".format(response['data']['sms_id'],response['data']['status']))
     except ProtocolError as e:
         print(e)
@@ -61,8 +63,7 @@ async def main(login=None,password=None,token=None,destinations=None):
 
     asyncio.get_event_loop().create_task(close())
 
-if len(sys.argv) == 4:
-    asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destinations=sys.argv[3]))
-elif len(sys.argv) == 3:
+if len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destinations=sys.argv[2]))
-
+else:
+    sys.exit(1)

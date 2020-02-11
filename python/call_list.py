@@ -20,7 +20,7 @@ import asyncio
 from jsonrpc_websocket import Server, ProtocolError
 
 endpoint_url = 'wss://testapi.megafon.ru/v1/api'
-play_file = 'testing.pcm'
+play_file = 'new_year.pcm'
 megafon = None
 
 terminated_ev = None
@@ -46,9 +46,9 @@ def call_rejected(call_session,sipCode,cause,message):
     terminated_ev.set()
     flow_ev.set()
 
-def call_terminated(call_session,sipCode,cause,message):
+def call_terminated(call_session,source,cause,message):
     global flow_ev,terminated_ev
-    print('Вызов {0} завершен с кодом SIP={1}, ISUP={2} и сообщением {3}'.format(call_session,sipCode,cause,message))
+    print('Вызов {0} завершен с кодом SOURCE={1}, ISUP={2} и сообщением {3}'.format(call_session,source,cause,message))
     terminated_ev.set()
     flow_ev.set()
 
@@ -59,9 +59,9 @@ async def main(login=None,password=None,token=None,destinations=None):
 
     # Создаем соединение с сетью и аутентифицируемся
     if (token):
-        megafon = Server(endpoint_url, headers={'Authorization':'JWT '+token})
-    elif (login and password):
-        megafon = Server(endpoint_url, auth=aiohttp.BasicAuth(login,password))
+        megafon = Server(endpoint_url+"/"+token)
+    else:
+        sys.exit(1)
 
     # В словарь 'sessions' будем записывать идентификатор сессии и вызываемый номер телефона (номер B). В данном
     # примере это нужно для того, чтобы показать номер телефона по идущей сессии
@@ -112,7 +112,8 @@ async def main(login=None,password=None,token=None,destinations=None):
         await megafon.close()
         print('Завершен последовательный обзвон по списку')
 
-if len(sys.argv) == 4:
-    asyncio.get_event_loop().run_until_complete(main(login=sys.argv[1],password=sys.argv[2],destinations=sys.argv[3]))
-elif len(sys.argv) == 3:
+if len(sys.argv) == 3:
     asyncio.get_event_loop().run_until_complete(main(token=sys.argv[1],destinations=sys.argv[2]))
+else:
+    print(f"Необходимый формат: {sys.argv[0]} <token> <файл со списком номеров>")
+    sys.exit(1)
