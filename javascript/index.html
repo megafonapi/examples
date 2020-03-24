@@ -1,85 +1,111 @@
 <html>
-<head>
-<title>Megafon.API Example</title>
-<meta charset="utf-8">
-</head>
-<body>
-	<script type="text/javascript" src='jsonrpcws.js'></script>
-	<script type="text/javascript">
-	if (window.WebSocket) {
-		window.onload = () => {
-			let conf_session = null;
-			connection.onclick = () => {
-				if (connection.innerText == 'Connect') {
-					const protocol = location.protocol.replace('http', 'ws');
-					client = new JsonRpcWs(`${protocol}//${login.value}:${password.value}@${location.host}/v1/api`);
-					client.handle('OnOpen', () => {
-						connection.innerText = 'Disconnect';
-						actions.style.display = 'block';
-					});
-					client.handle('onCallAnswer', (params) => {
-						if (params.call_session) {
-							client.request('callFilePlay', { call_session: params.call_session, filename: 'welcome.pcm' });
-						}
-					});
-					client.handle('onConfMake', (params) => {
-						if (params.conf_session) {
-							conf_session = params.conf_session
-							client.request('confBroadcastConnect', { conf_session: conf_session, url: "shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps" });
-							client.request('callMake', { bnum: destination.value });
-						}
-					});
-					client.handle('onCallFilePlay', (params) => {
-						if (conf_session) {
-							client.request('confAdd', { conf_session: conf_session, call_session: params.call_session });
-						} else {
-							client.request('callTerminate', { call_session: params.call_session });
-						}
-					});
-					client.handle('onCallIncoming', (params) => {
-						if (params.call_session) {
-							client.request('callAnswer', { call_session: params.call_session });
-						}
-					});
-					client.handle('onCallTerminate', () => {
-						console.log('call terminated');
-					});
-					client.handle('OnClose', () => {
-						connection.innerText = 'Connect';
-						actions.style.display = 'none';
-					});
-					client.open();
-				} else {
-					client.close();
-				}
-			}
-			call.onclick = () => {
-				client.request('callMake', { bnum: destination.value });
-			}
-			conference.onclick = () => {
-				if (conf_session == null) {
-					client.request('confMake');
-				}
-			}
-		}
-	} else {
-		console.log('Your browser does not support websockets and promises');
-	}
-	</script>
-	<br>
-	Для того, чтобы воспользоваться примером, введите ваш логин (номер телефона учётной записи), пароль и нажмите "Connect". После этого откроются поля ввода
-	для единичного вызов (кнопка Call) и конференции (кнопка Conference). Введя любой номер телефона в окне ввода и нажимая Call, можно осуществить звонок, после 
-	которого будет проиграно тестовое сообщение и вызов завершится. Введя любой номер телефона во втором окне ввода и нажимая Conf, можно присоединить вызов на этот
-	номер к множественной конференции. Повторяя эту операцию несколько раз, можно создать конференцию из нескольких участников.
-	<br><br>
-	<input id='login' placeholder='Login'>
-	<input id='password' placeholder='Password'>
-	<button id='connection'>Connect</button>
-	<br><br>
-	<div id='actions' style='display:none'>
-	<input id='destination' placeholder='Destination'>
-	<button id='call'>Call</button>
-	<button id='conference'>Conference</button>
-	</div>
-</body>
+    <head>
+        <title>Megafon.API Example</title>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <script type="text/javascript">
+        onload = () => {
+            connection.onclick = () => {
+                if (connection.innerText == 'Connect') {
+                    fetch('https://testapi.megafon.ru/api/rest/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ login:login.value, password:password.value })
+                    }).then(response => {
+                        return response.json()
+                    }).then(json => {
+                        accessToken = json.data.accessToken
+                        return fetch('https://testapi.megafon.ru/api/rest/apiKeys', {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${accessToken}` }})
+                    }).then(response => {
+                        return response.json()
+                    }).then(json => {
+                        if (json.data[0]) {
+                            return Promise.resolve({ data: { apiKey: json.data[0] }})
+                        } else {
+                            return fetch('https://testapi.megafon.ru/api/rest/apiKeys', {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${accessToken}` }})
+                        }
+                    }).then(response => {
+                        if (response.data && response.data.apiKey) {
+                            return Promise.resolve(response)
+                        } else {
+                            return response.json()
+                        }
+                    }).then(json => {
+                        apiKey = json.data.apiKey
+                        socket = new WebSocket(`wss://testapi.megafon.ru/v1/api/${apiKey}`)
+                        socket.onopen = () => {
+                            connection.innerText = 'Disconnect'
+                            actions.style.display = 'block'
+                        }
+                        socket.reqnum = 0
+                        socket.request = (method, params) => {
+                            const data = { id: ++socket.reqnum, jsonrpc: '2.0', method: method, params: params }
+                            socket.send(JSON.stringify(data))
+                        }
+                        socket.onmessage = (message) => {
+                            const data = JSON.parse(message.data)
+                            switch(data.method) {
+                                case 'onConfMake':
+                                    conf_session = data.params.conf_session
+                                    socket.request('confBroadcastConnect', { conf_session: conf_session, url: "shout://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_64kbps" })
+                                    socket.request('callMake', { bnum: destination.value })
+                                    break
+                                case 'onCallIncoming':
+                                    socket.request('callAnswer', { call_session: data.params.call_session })
+                                    break
+                                case 'onCallAnswer':
+                                    socket.request('callFilePlay', { call_session: data.params.call_session, filename: 'welcome.pcm' })
+                                    break
+                                case 'onCallFilePlay':
+                                    if (typeof conf_session === 'undefined')
+                                        socket.request('callTerminate', { call_session: data.params.call_session })
+                                    else
+                                        socket.request('confAdd', { conf_session: conf_session, call_session: params.call_session })
+                                    break
+                            }
+                        }
+                        socket.onclose = () => {
+                            connection.innerText = 'Connect'
+                            actions.style.display = 'none'
+                        }
+                    })
+                } else {
+                    socket.close()
+                    fetch(`https://testapi.megafon.ru/api/rest/apiKeys/${apiKey}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                }
+            }
+            call.onclick = () => {
+                socket.request('callMake', { bnum: destination.value })
+            }
+            conference.onclick = () => {
+                if (typeof conf_session === 'undefined') {
+                    socket.request('confMake')
+                }
+            }
+        }
+        </script>
+        <br>
+        Для того, чтобы воспользоваться примером, введите ваш логин (номер телефона учётной записи), пароль и нажмите Connect. После этого откроются поля ввода
+        для единичного вызов (кнопка Call) и конференции (кнопка Conference). Введя любой номер телефона в окне ввода и нажимая Call, можно осуществить звонок, после 
+        которого будет проиграно тестовое сообщение и вызов завершится. Введя любой номер телефона в окне ввода и нажимая Conference, можно присоединить вызов
+        этот номер к множественной конференции. Повторяя эту операцию несколько раз, можно создать конференцию из нескольких участников.
+        <br><br>
+        <input id='login' placeholder='Login'>
+        <input id='password' placeholder='Password'>
+        <button id='connection'>Connect</button>
+        <br><br>
+        <div id='actions' style='display:none'>
+        <input id='destination' placeholder='Destination'>
+        <button id='call'>Call</button>
+        <button id='conference'>Conference</button>
+        </div>
+    </body>
 </html>
