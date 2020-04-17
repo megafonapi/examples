@@ -3,10 +3,10 @@
         <title>Megafon.API Example</title>
         <meta charset="utf-8">
         <style>
-			body, input, button {
-				font-family: droid sans mono,consolas,monospace,courier new,courier,sans-serif;
-				font-size: 1em;
-			}
+            body, input, button {
+                font-family: droid sans mono,consolas,monospace,courier new,courier,sans-serif;
+                font-size: 1em;
+            }
         </style>
     </head>
     <body>
@@ -31,6 +31,7 @@
                         if (json.data[0]) {
                             return Promise.resolve({ data: { apiKey: json.data[0] }})
                         } else {
+                            newApiKey = true
                             return fetch('https://testapi.megafon.ru/api/rest/apiKeys', {
                                 method: 'POST',
                                 headers: { 'Authorization': `Bearer ${accessToken}` }})
@@ -49,12 +50,8 @@
                     }).then(response => {
                         return response.json()
                     }).then(json => {
-                        if (json.data.yandexSpeechKitKey) {
-                            if (!yandexSpeechKitKey.value) {
-                                yandexSpeechKitKey.value = json.data.yandexSpeechKitKey
-                            }
-                            return Promise.resolve()
-                        } else if (yandexSpeechKitKey.value) {
+                        savedYandexSpeechKitKey = json.data.yandexSpeechKitKey
+                        if (yandexSpeechKitKey.value) {
                             return fetch('https://testapi.megafon.ru/api/rest/account', {
                                 method: 'PUT',
                                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -88,7 +85,6 @@
                                     socket.request('callFilePlay', { call_session: data.params.call_session, filename: 'welcome.pcm' })
                                     break
                                 case 'onCallFilePlay':
-                                    console.log(yandexSpeechKitKey.value)
                                     if (typeof conf_session === 'undefined') {
                                         if (yandexSpeechKitKey.value) {
                                             socket.request('callSTTStart', { call_session: data.params.call_session, engine: 'yandex' })
@@ -96,11 +92,15 @@
                                             socket.request('callTerminate', { call_session: data.params.call_session })
                                         }                                        
                                     } else {
-                                        socket.request('confAdd', { conf_session: conf_session, call_session: params.call_session })
+                                        socket.request('confAdd', { conf_session: conf_session, call_session: data.params.call_session })
                                     }
                                     break
                                 case 'onSTTFragment':
                                     sttMessages.innerText = `STT Fragments: ${data.params.message}`
+                                    break
+                                case 'onCallTerminate':
+                                    sttMessages.innerText = ''
+                                    conf_session = undefined
                                     break
                             }
                         }
@@ -111,10 +111,18 @@
                     })
                 } else {
                     socket.close()
-                    fetch(`https://testapi.megafon.ru/api/rest/apiKeys/${apiKey}`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    }).then(response => {
+                    const cleanup = []
+                    cleanup.push(fetch('https://testapi.megafon.ru/api/rest/account', {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ yandexSpeechKitKey: savedYandexSpeechKitKey })})
+                    )
+                    if (typeof newApiKey === 'boolean' && newApiKey) {
+                        cleanup.push(fetch(`https://testapi.megafon.ru/api/rest/apiKeys/${apiKey}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${accessToken}` }}))
+                    }
+                    Promise.all(cleanup).then(() => {
                         fetch(`https://testapi.megafon.ru/api/rest/logout`, { 
                             method: 'POST'
                         })
@@ -134,7 +142,7 @@
         <br>
         Пример предназначен для использования в современных браузерах с поддержкой Promises, Fetch и WebSocket. В процессе использования примера рекомендуется открыть вкладку Network, чтобы в разделах XHR и WS видеть обмен запросами/ответами/событиями между браузером и платформой.
         <br><br>
-        Для начала необходимо подключиться с использованием логина (номера телефона), пароля (от личного кабинета) и кнопки Connect - после этого появится текстовое поле для ввода номера телефона (MSISDN) и кнопки:
+        Для начала необходимо подключиться с использованием логина (номера телефона), пароля (от личного кабинета) и кнопки <b>Connect</b> - после этого появится текстовое поле для ввода номера телефона (MSISDN) и кнопки:
         <br>
         <ul>
         <li><b>Call</b> - позвонить на введенный номер, проиграть аудиофайл и завершить вызов</li>
