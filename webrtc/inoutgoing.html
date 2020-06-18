@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8"></meta>
+    <script defer src="simple-jsonrpc-js.js"></script>
+    <script defer src="inoutgoing.js"></script>
+  </head>
+
+  <body>
+
+    <strong><p id="ready">Waiting...</p></strong>
+    <label for="megafon_api_url">Websocket URL:</label>
+    <input type="text" id="megafon_api_url" placeholder="ws://...">
+    <button id="connect" onclick="connect()">Connect</button>
+    <button id="disconnect" onclick="disconnect()" disabled>Disconnect</button>
+    <strong><p id="status">...</p></strong>
+    <hr/>
+    <p><strong>Установка соединения между браузером и платформой</strong></p>
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">1. Послать запрос на платформу (callMakeRTC)</div>
+          <input type="checkbox" id="callMakeRTC" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">2. Платформа видит входящий из браузера и отдаёт его call_session (onCallIncoming)</div>
+          <input type="checkbox" id="onCallIncoming" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">3. Мы "берём трубку" браузерного плеча (onCallAnswer)</div>
+          <input type="checkbox" id="onCallAnswerWEB" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">4. Платформа отдаёт нам свой SDP (onCallAnswerRTC)</div>
+          <input type="checkbox" id="onCallAnswerRTC" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">5. Играем тоновый сигнал в браузер (callTonePlay)</div>
+          <input type="checkbox" id="callTonePlay" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">6. Тоновый сигнал завершён (onCallTonePlay)</div>
+          <input type="checkbox" id="onCallTonePlay" autocomplete="off" disabled>
+        </div>
+    <p><strong>Теперь можно набирать номер телефона</strong></p>    
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">1. <input type="text" id="callMakeText" placeholder="7xxxxxxxxxx" disabled>
+             <button id="callMake" onclick="callMake()" autocomplete="off" disabled>callMake</button></div>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">2. Звоним на телефон (callMake)</div>
+          <input type="checkbox" id="callMake_check" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">2.1. Принимаем звонок с телефона (onCallIncoming)</div>
+          <input type="checkbox" id="onCallIncoming_check" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">3. Берём трубку на телефоне (onCallAnswer)</div>
+          <input type="checkbox" id="onCallAnswerPHONE" autocomplete="off" disabled>
+        </div>
+
+        <div style="display: flex; padding: 5px;">
+          <div style="width: 300px">4. Объединяем вызов (callTrombone)</div>
+          <input type="checkbox" id="callTrombone" autocomplete="off" disabled>
+        </div>
+
+
+
+
+
+  </div>    
+    <audio id="localAudio" autoplay muted></audio>
+    <audio id="remoteAudio" autoplay></audio>
+  </body>
+</html>
